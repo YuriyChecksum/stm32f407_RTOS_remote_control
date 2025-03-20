@@ -50,6 +50,8 @@ extern DAC_HandleTypeDef hdac;
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2;
 
+extern IWDG_HandleTypeDef hiwdg;
+
 extern RNG_HandleTypeDef hrng;
 
 extern TIM_HandleTypeDef htim4;

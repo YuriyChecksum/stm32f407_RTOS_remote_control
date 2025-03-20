@@ -35,6 +35,7 @@
 //#include <sys/time.h>
 //#include <sys/times.h>
 
+#include "task_05.h"
 //#include "os.h"
 #include "CRC.h"
 #include "buttons.h"
@@ -91,7 +92,7 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_memtomem_dma2_stream1;
 /* Definitions for keyReadTask */
 osThreadId_t keyReadTaskHandle;
-uint32_t keyReadTaskBuffer[ 128 ];
+uint32_t keyReadTaskBuffer[ 512 ];
 osStaticThreadDef_t keyReadTaskControlBlock;
 const osThreadAttr_t keyReadTask_attributes = {
   .name = "keyReadTask",
@@ -103,7 +104,7 @@ const osThreadAttr_t keyReadTask_attributes = {
 };
 /* Definitions for uartReadTask */
 osThreadId_t uartReadTaskHandle;
-uint32_t uartReadTaskBuffer[ 256 ];
+uint32_t uartReadTaskBuffer[ 512 ];
 osStaticThreadDef_t uartReadTaskControlBlock;
 const osThreadAttr_t uartReadTask_attributes = {
   .name = "uartReadTask",
@@ -115,7 +116,7 @@ const osThreadAttr_t uartReadTask_attributes = {
 };
 /* Definitions for ADC1ReadTask */
 osThreadId_t ADC1ReadTaskHandle;
-uint32_t myTaskADC1Buffer[ 128 ];
+uint32_t myTaskADC1Buffer[ 512 ];
 osStaticThreadDef_t myTaskADC1ControlBlock;
 const osThreadAttr_t ADC1ReadTask_attributes = {
   .name = "ADC1ReadTask",
@@ -135,6 +136,18 @@ const osThreadAttr_t BMP280Task_attributes = {
   .cb_size = sizeof(BMP280TaskControlBlock),
   .stack_mem = &BMP280TaskBuffer[0],
   .stack_size = sizeof(BMP280TaskBuffer),
+  .priority = (osPriority_t) osPriorityNormal1,
+};
+/* Definitions for myTask05 */
+osThreadId_t myTask05Handle;
+uint32_t myTask05Buffer[ 256 ];
+osStaticThreadDef_t myTask05ControlBlock;
+const osThreadAttr_t myTask05_attributes = {
+  .name = "myTask05",
+  .cb_mem = &myTask05ControlBlock,
+  .cb_size = sizeof(myTask05ControlBlock),
+  .stack_mem = &myTask05Buffer[0],
+  .stack_size = sizeof(myTask05Buffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for myMutex01 */
@@ -182,6 +195,7 @@ void StartTaskKeyRead(void *argument);
 void StartTaskUartRead(void *argument);
 void StartTaskADC(void *argument);
 void StartTaskReadBMP280(void *argument);
+extern void StartTask05(void *argument);
 
 /* USER CODE BEGIN PFP */
 // область для объявления приватных функций
@@ -867,11 +881,12 @@ void command_ch(char c) {
 		printf("Command 2\r\n");
 		break;
 	case '3':
-		_PRNFAST("Command 3\r\n");
-		printf("MinFreeStack BMP280TaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(BMP280TaskHandle));
-		printf("MinFreeStack ADC1ReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(ADC1ReadTaskHandle));
-		printf("MinFreeStack uartReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(uartReadTaskHandle));
-		printf("MinFreeStack keyReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(keyReadTaskHandle));
+		_PRNFAST("Command MinFreeStack\r\n");
+		printf("BMP280TaskHandle   %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(BMP280TaskHandle));
+		printf("ADC1ReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(ADC1ReadTaskHandle));
+		printf("uartReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(uartReadTaskHandle));
+		printf("keyReadTaskHandle  %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(keyReadTaskHandle));
+		printf("myTask05Handle     %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(myTask05Handle));
 		break;
 	default:
 		break;
@@ -1153,6 +1168,9 @@ int main(void)
 
   /* creation of BMP280Task */
   BMP280TaskHandle = osThreadNew(StartTaskReadBMP280, NULL, &BMP280Task_attributes);
+
+  /* creation of myTask05 */
+  myTask05Handle = osThreadNew(StartTask05, NULL, &myTask05_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1723,15 +1741,14 @@ void StartTaskKeyRead(void *argument)
 /* USER CODE END Header_StartTaskUartRead */
 void StartTaskUartRead(void *argument)
 {
-	/* USER CODE BEGIN StartTaskUartRead */
+  /* USER CODE BEGIN StartTaskUartRead */
 	/* Infinite loop */
 	for (;;)
 	{
 		task_uartRX();
-		osDelay(5);
-		// task_MT6701; // опрос магнитного энкодера MT6701  200ms
+		osDelay(5 / portTICK_RATE_MS);
 	}
-	/* USER CODE END StartTaskUartRead */
+  /* USER CODE END StartTaskUartRead */
 }
 
 /* USER CODE BEGIN Header_StartTaskADC */
@@ -1743,13 +1760,10 @@ void StartTaskUartRead(void *argument)
 /* USER CODE END Header_StartTaskADC */
 void StartTaskADC(void *argument)
 {
-	/* USER CODE BEGIN StartTaskADC */
+  /* USER CODE BEGIN StartTaskADC */
 	/* Infinite loop */
-	portTickType xLastWakeTime;
-//	const char *mess = "Task: KeyADC\r\n";
 	for (;;)
 	{
-		printf("Worked: %.3f sec\r\n", HAL_GetTick() / 1000.0f);
 		// if (osSemaphoreRelease(myBinarySem01Handle) == osOK)
 		// {
 		// }
@@ -1759,10 +1773,11 @@ void StartTaskADC(void *argument)
 		// ADC_read_DMA_mode();
 		// xTaskResumeAll();
 		// taskEXIT_CRITICAL();
+		// task_MT6701; // опрос магнитного энкодера MT6701  200ms
 		HAL_IWDG_Refresh(&hiwdg);
-		vTaskDelayUntil(&xLastWakeTime, (2000 / portTICK_RATE_MS));
+		osDelay(pdMS_TO_TICKS(1000));
 	}
-	/* USER CODE END StartTaskADC */
+  /* USER CODE END StartTaskADC */
 }
 
 /* USER CODE BEGIN Header_StartTaskReadBMP280 */
@@ -1774,19 +1789,21 @@ void StartTaskADC(void *argument)
 /* USER CODE END Header_StartTaskReadBMP280 */
 void StartTaskReadBMP280(void *argument)
 {
-	/* USER CODE BEGIN StartTaskReadBMP280 */
+  /* USER CODE BEGIN StartTaskReadBMP280 */
 	/* Infinite loop */
-	portTickType xLastWakeTime2;
+	TickType_t tcnt; // xLastWakeTime
 	for (;;)
 	{
-		// простой пинг в терминал, что работаем и не зависли
+		tcnt = xTaskGetTickCount();
+		printf("tcnt: %ld\r\n", tcnt);
 		LED_Toggle;
-//		read_BMP280_ATH25();
+		read_BMP280_ATH25();
 		HAL_IWDG_Refresh(&hiwdg);
-		osDelay(3000);
-//		vTaskDelayUntil(&xLastWakeTime2, (3000 / portTICK_RATE_MS));
+		vTaskDelayUntil( &tcnt, pdMS_TO_TICKS(3000) ); // более точный период вызова
+		// osDelay(3000 / portTICK_RATE_MS);
+		// osDelayUntil(pdMS_TO_TICKS(3000));
 	}
-	/* USER CODE END StartTaskReadBMP280 */
+  /* USER CODE END StartTaskReadBMP280 */
 }
 
 /**
