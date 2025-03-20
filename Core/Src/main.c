@@ -1746,8 +1746,10 @@ void StartTaskADC(void *argument)
 	/* USER CODE BEGIN StartTaskADC */
 	/* Infinite loop */
 	portTickType xLastWakeTime;
+//	const char *mess = "Task: KeyADC\r\n";
 	for (;;)
 	{
+		printf("Worked: %.3f sec\r\n", HAL_GetTick() / 1000.0f);
 		// if (osSemaphoreRelease(myBinarySem01Handle) == osOK)
 		// {
 		// }
@@ -1758,7 +1760,7 @@ void StartTaskADC(void *argument)
 		// xTaskResumeAll();
 		// taskEXIT_CRITICAL();
 		HAL_IWDG_Refresh(&hiwdg);
-		vTaskDelayUntil(&xLastWakeTime, (1000 / portTICK_RATE_MS));
+		vTaskDelayUntil(&xLastWakeTime, (2000 / portTICK_RATE_MS));
 	}
 	/* USER CODE END StartTaskADC */
 }
@@ -1774,16 +1776,15 @@ void StartTaskReadBMP280(void *argument)
 {
 	/* USER CODE BEGIN StartTaskReadBMP280 */
 	/* Infinite loop */
-	// const char *mess = "Task: KeyADC\r\n";
-	portTickType xLastWakeTime;
+	portTickType xLastWakeTime2;
 	for (;;)
 	{
 		// простой пинг в терминал, что работаем и не зависли
-		// printf("_Worked: %.3f sec\r\n", HAL_GetTick() / 1000.0f);
 		LED_Toggle;
-		read_BMP280_ATH25();
+//		read_BMP280_ATH25();
 		HAL_IWDG_Refresh(&hiwdg);
-		vTaskDelayUntil(&xLastWakeTime, (3000 / portTICK_RATE_MS));
+		osDelay(3000);
+//		vTaskDelayUntil(&xLastWakeTime2, (3000 / portTICK_RATE_MS));
 	}
 	/* USER CODE END StartTaskReadBMP280 */
 }
