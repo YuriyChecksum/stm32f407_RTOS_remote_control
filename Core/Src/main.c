@@ -1757,7 +1757,7 @@ void StartTaskADC(void *argument)
 		// ADC_read_DMA_mode();
 		// xTaskResumeAll();
 		// taskEXIT_CRITICAL();
-		// HAL_IWDG_Refresh(&hiwdg);
+		HAL_IWDG_Refresh(&hiwdg);
 		vTaskDelayUntil(&xLastWakeTime, (1000 / portTICK_RATE_MS));
 	}
 	/* USER CODE END StartTaskADC */
@@ -1782,6 +1782,7 @@ void StartTaskReadBMP280(void *argument)
 		// printf("_Worked: %.3f sec\r\n", HAL_GetTick() / 1000.0f);
 		LED_Toggle;
 		read_BMP280_ATH25();
+		HAL_IWDG_Refresh(&hiwdg);
 		vTaskDelayUntil(&xLastWakeTime, (3000 / portTICK_RATE_MS));
 	}
 	/* USER CODE END StartTaskReadBMP280 */
