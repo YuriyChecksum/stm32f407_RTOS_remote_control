@@ -15,6 +15,7 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  * Author: Maltsev Yuriy
   */
 /* USER CODE END Header */
 
@@ -31,7 +32,10 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>    // printf
+//#include "os.h"
+#include "LCD_LPH8731.h"
+//#include "BH1750/bh1750.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -62,6 +66,8 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream1;
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+#define _SIZE_ARRAY(arr)   ( sizeof(arr)/sizeof(arr[0]) )
+
 #define LED_Port 	LED1_GPIO_Port
 #define LED_Pin 	LED1_Pin
 #define LED_On		HAL_GPIO_WritePin(LED_Port, LED_Pin, GPIO_PIN_SET);   // GPIO_PIN_RESET
