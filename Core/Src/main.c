@@ -204,7 +204,7 @@ int __io_putchar(int ch){
 
 // ещё способ передачи
 void USART2_putch(char c) {
-	//ожидание готовности
+	// ожидание готовности
 	while (!(USART2->SR & USART_SR_TXE));
 	USART2->DR = c;
 }
@@ -215,45 +215,43 @@ void USART2_sendstr(const char *s) {
 
 uint16_t adc[4] = {0};
 
-char bufLCDstr[100] = { 0 };
+char bufLCD[100] = { 0 };
 
 /* callback на завершение преобразования ADC */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	if (hadc->Instance == ADC1) {
-		//HAL_ADC_Stop_DMA(hadc);
+		// HAL_ADC_Stop_DMA(hadc);
 		float vdd = (1 * 1.2f * 4096) / adc[3]; // если внутреннее опорное ровно 1.2В
-		//printf("callback ADC: %4d, Tout= %4d (%.1f C), vdd= %4d (%.3f V), Tint= %4d\r\n", adc[0], adc[1], TMP36convertToTemperature(adc[1]), adc[2], vdd, adc[3]);
+		// TMP36convertToTemperature(adc[1])
 		printf("ADC: A0:%4d, A1:%4d, Tint=%4d, vdd=%4d (%.3f V)\r\n", adc[0], adc[1], adc[2], adc[3], vdd);
-		//HAL_Delay(1);
-		//HAL_ADC_Start_DMA(hadc, (uint32_t*)adcDMA, 4); // нужно перезапускать если не континуос режим и запуск не от таймера
+		// HAL_Delay(1);
+		// HAL_ADC_Start_DMA(hadc, (uint32_t*)adcDMA, 4); // нужно перезапускать если не continues режим и запуск не от таймера
 
 		// LCD print
+		// memset(bufLCD, 0, 100);
 		ColorInk=BLACK;
 		ColorBack=WHITE;
-		//memset(bufLCDstr, 0, 100);
-		sprintf(bufLCDstr, " Vdd:  %.3f V\n ADC1: %4d\n ADC2: %4d", vdd, adc[0], adc[1]);
-		printstr_lcd(bufLCDstr, 0, 0, 1, 1);
+		sprintf(bufLCD, " Vdd:  %.3f V\n ADC1: %4d\n ADC2: %4d", vdd, adc[0], adc[1]);
+		printstr_lcd(bufLCD, 0, 0, 1, 1);
 
 #ifdef INC_MT6701_H_
-		//task5_MT6701();
+		// task_MT6701();
 		uint16_t rez_raw = mt6701_read();
 		float deg = rez_raw * (360.0f / 16384.0f);
 		printf(" MT6701 = raw: %4d, deg: %.3f\r\n", rez_raw, deg);
 #endif
-		//memset(bufLCDstr, 0, 100);
-		//sprintf(bufLCDstr, " MT6701: %4d\n deg: %.3f", rez_raw, deg);
-		//printstr_lcd(bufLCDstr, 0, 4, 1, 1);
+		// memset(bufLCD, 0, 100);
+		// sprintf(bufLCD, " MT6701: %4d\n deg: %.3f", rez_raw, deg);
+		// printstr_lcd(bufLCD, 0, 4, 1, 1);
 
-		//printchr_lcd('*', 0, 0, 1, 1);
-		//lcd_prn(bufLCDstr);
+		// printchr_lcd('*', 0, 0, 1, 1);
+		// lcd_prn(bufLCD);
 	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	printf("GPIO_EXTI_callback %d\r\n", GPIO_Pin);
 }
-
-//TaskInitTypeDef* t_BMP280;
 
 /*--------------------------- UART RX ----------------------------------------*/
 // ver 1.1
@@ -312,7 +310,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 	/* Если второй буфер и так полный и первый тоже заполнился, то прерывания продолжаем,
 	 * но новые данные не сохраняем (будут потери).
-	 * �?наче перебросим данные из первого во второй и выставим флаг переполнения.
+	 * Иначе перебросим данные из первого во второй и выставим флаг переполнения.
 	 * memcpy не успевает скопировать от 100 до 120 байт без пропуска следующего символа на 1млн бод
 	 * Получаем скорость копирования около 11МГц. volatile не спасает, как и оптимизация.
 	 * Можно попробовать ускорить с помощью DMA, либо использовать блинный буфер,
@@ -328,7 +326,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		idx = 0;
 		lenRxData = maxlen;
 		isFull = 1;
-		//_PRNFAST("_ENDF_\r\n");
 	}
 	// запрашиваем следующий байт данных из порта через прерывание
 	HAL_UART_Receive_IT(UART, &chRx, 1);
@@ -341,16 +338,19 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
  * например для строк и символов это окончание строки \r или \n.
  * Для бинарных иной вариант, например фиксированная длинна, или длинна указанная в первом байте.
  */
-void task4_uartRx() {
+void task_uartRX()
+{
 	// был переполнен входной буфер, данные уже лежат в bufRx2
 	// нежелательное событие, так как данные либо не были вовремя обработаны и
 	// скопилась очередь, либо пришла команда длинее чем входной буфер.
-	if (isFull != 0) {
-		_PRNFAST("_FULL_BUF_\r\n");
+	if (isFull != 0)
+	{
 #ifdef UART_DEBUG
-		HAL_StatusTypeDef stat = HAL_UART_Transmit_IT(UART, (uint8_t*) bufRx2, maxlen-1);
+		_PRNFAST("_FULL_BUFF_\r\n");
+		HAL_StatusTypeDef stat = HAL_UART_Transmit_IT(UART, (uint8_t *)bufRx2, maxlen - 1);
 		HAL_Delay(TICK_WAIT_RX);
-		if (stat != HAL_OK) {
+		if (stat != HAL_OK)
+		{
 			_PRNFAST("*");
 		}
 		_PRNFAST("_ENDF_\r\n");
@@ -359,20 +359,23 @@ void task4_uartRx() {
 		isFull = 0; // не сбрасываем пока до конца не обработали данные буфера
 	}
 	// данные в bufRx1, таймаут TICK_WAIT_RX мс
-	if (idx > 0) {
-		if (isReciveCmplete || (HAL_GetTick() > UARTtimeout + TICK_WAIT_RX)) {
-			/*uint16_t n = idx;
-			idx = 0; // как можно быстрее готовим к приёму данных
-			memcpy(bufRx2, bufRx1, n);*/
+	if (idx > 0)
+	{
+		if (isReciveCmplete || (HAL_GetTick() > UARTtimeout + TICK_WAIT_RX))
+		{
+			// uint16_t n = idx;
+			// idx = 0; // как можно быстрее готовим к приёму данных
+			// memcpy(bufRx2, bufRx1, n);
 
 			memcpy(bufRx2, bufRx1, idx);
 			bufRx2[idx] = 0; // конец строки
 
 #ifdef UART_DEBUG
 			_PRNFAST("_T_");
-			HAL_StatusTypeDef stat = HAL_UART_Transmit_IT(UART, (uint8_t*) bufRx2, idx);
+			HAL_StatusTypeDef stat = HAL_UART_Transmit_IT(UART, (uint8_t *)bufRx2, idx);
 			HAL_Delay(TICK_WAIT_RX);
-			if (stat != HAL_OK) {
+			if (stat != HAL_OK)
+			{
 				_PRNFAST("!");
 			}
 			_PRNFAST("_END_T_\r\n");
@@ -381,22 +384,27 @@ void task4_uartRx() {
 			idx = 0;
 			isFull = 0;
 			isReciveCmplete = 0;
-			//UARTtimeout = HAL_GetTick();
-			//char tmpbuf[20];
-			//itoa((UARTtimeout - HAL_GetTick()), tmpbuf);
-			printf("timeout: %d\r\n", (int) (HAL_GetTick() - UARTtimeout));
+			// UARTtimeout = HAL_GetTick();
+			// char tmpbuf[20];
+			// itoa((UARTtimeout - HAL_GetTick()), tmpbuf);
+			printf("timeout: %d\r\n", (int)(HAL_GetTick() - UARTtimeout));
 
 			/* TO DO: добавить семафор, чтобы не копировались данные из bufRx1 в bufRx2
 			 * пока не завершилась обработка данных из буфера		 */
 
 			// разделяем строковые (начинаются с '_'), бинарные (начинаются с '*') и односимвольные команды
-			if (bufRx2[0] == '*') { //первый символ '*' значит бинарный поток данных
+			if (bufRx2[0] == '*')
+			{ // первый символ '*' значит бинарный поток данных
 				command_bin(bufRx2);
-			} else if (bufRx2[0] != 0 && bufRx2[0] != '\r' && bufRx2[0] != '\n') { // первый символ не конец сообщения
-				if (bufRx2[1] == 0 || bufRx2[1] == '\r' || bufRx2[1] == '\n') {    // второй символ - конец сообщения
-					command_ch(*bufRx2);  // значит приняли односимвольную команду
-				} else
-					command_str(bufRx2);  // иначе приняли строковую команду
+			}
+			else if (bufRx2[0] != 0 && bufRx2[0] != '\r' && bufRx2[0] != '\n')
+			{ // первый символ не конец сообщения
+				if (bufRx2[1] == 0 || bufRx2[1] == '\r' || bufRx2[1] == '\n')
+				{						 // второй символ - конец сообщения
+					command_ch(*bufRx2); // значит приняли односимвольную команду
+				}
+				else
+					command_str(bufRx2); // иначе приняли строковую команду
 			}
 
 			/* if (*bufRx2 == '_') {
@@ -535,23 +543,23 @@ void command_str(char *str) {
 				return;
 			char cmd = *token;
 			printf("cmd arg: \'%c\'\r\n", cmd);
-			//printf("cmd not exist. token: \'%s\'\r\n", token);
+			// printf("cmd not exist. token: \'%s\'\r\n", token);
 
 			switch (cmd) {
 			case 'p':
 				printf("cmd pause task change\r\n");
-				//pause();
+				// pause();
 				printf("Task BMP280 Run/Stop\r\n");
-//				if (t_BMP280 != NULL && t_BMP280->task != NULL) {
-//					t_BMP280->pause = (t_BMP280->pause) ? 0 : 1;
-//				}
+				// if (t_BMP280 != NULL && t_BMP280->task != NULL) {
+				// 	t_BMP280->pause = (t_BMP280->pause) ? 0 : 1;
+				// }
 				break;
 			case 't':
 				token = strtok(NULL, " ");
-//				uint32_t period = (uint32_t) atoi(token);
-//				if (t_BMP280 != NULL && t_BMP280->task != NULL && period > 0) {
-//					t_BMP280->period = period;
-//				}
+				// uint32_t period = (uint32_t) atoi(token);
+				// if (t_BMP280 != NULL && t_BMP280->task != NULL && period > 0) {
+				// 	t_BMP280->period = period;
+				// }
 				break;
 			default:
 				break;
@@ -615,13 +623,13 @@ void command_str(char *str) {
 				buffW[i] = (hex2byte(chH) << 4) | hex2byte(chL);
 			}
 
-//			if (len_data != 1) {
-//				printf("Error: arg5 len_data != 1\r\n");
-//				return;
-//			}
-//			if (!nextArg(&token, 2)) return;
-//			uint8_t data = (hex2int(token[0]) << 4) | hex2int(token[1]);
-//			printf("arg data: %d, 0x%02x\r\n", data, data);
+			// if (len_data != 1) {
+			// 	printf("Error: arg5 len_data != 1\r\n");
+			// 	return;
+			// }
+			// if (!nextArg(&token, 2)) return;
+			// uint8_t data = (hex2int(token[0]) << 4) | hex2int(token[1]);
+			// printf("arg data: %d, 0x%02x\r\n", data, data);
 
 			// типы данных для STM32 (unsigned int) aka (uint32_t) aka (unsigned long)
 			uint32_t crc = ~0L; // crc Init  : 0xFFFFFFFF
@@ -654,7 +662,7 @@ void command_str(char *str) {
 
 			// TO DO: убрать после отладки BMP280
 			if (busaddr == 0x76) {
-				//bmp280_write(memaddr, data);
+				// bmp280_write(memaddr, data);
 				HAL_Delay(100);
 				BMP280_Read_All();
 			}
@@ -698,7 +706,7 @@ void command_str(char *str) {
 		}
 
 		uint32_t endTime = HAL_GetTick();
-		//printf("\r\nWrite time(ms): %d\r\n", (int)(endTime - startTime));
+		// printf("\r\nWrite time(ms): %d\r\n", (int)(endTime - startTime));
 		printf("Time(ms): %d\r\n\r\n", (int)(endTime - startTime));
 	} else if (strcmp(token, "i2c2") == 0) {
 		printf("cmd: i2c2\r\n");
@@ -800,19 +808,19 @@ void command_ch(char c) {
 		break;
 	case 'q':
 		printf("TIM_OC_Stop\r\n");
-		//HAL_TIM_OC_Start(&htim4, TIM_CHANNEL_4); // запускаем таймер
+		// HAL_TIM_OC_Start(&htim4, TIM_CHANNEL_4); // запускаем таймер
 		HAL_TIM_OC_Stop(&htim4, TIM_CHANNEL_4);
 		break;
 	case 'Q':
 		printf("Task BMP280 Run/Stop\r\n");
-//		для приостановки задач нужно подключить заголовочный файл task.h
-//		и определить макро INCLUDE_vTaskSuspend в значение 1
-//		vTaskSuspend( xHandle );
-//		vTaskResume( xHandle );
+		// для приостановки задач нужно подключить заголовочный файл task.h
+		// и определить макро INCLUDE_vTaskSuspend в значение 1
+		// vTaskSuspend( xHandle );
+		// vTaskResume( xHandle );
 
-//		if (t_BMP280 != NULL && t_BMP280->task != NULL) {
-//			t_BMP280->pause = (t_BMP280->pause) ? 0 : 1;
-//		}
+		// if (t_BMP280 != NULL && t_BMP280->task != NULL) {
+		// 	t_BMP280->pause = (t_BMP280->pause) ? 0 : 1;
+		// }
 		break;
 	case 'd':
 		isDMA = !isDMA;
@@ -860,7 +868,6 @@ void command_ch(char c) {
 		break;
 	case '3':
 		_PRNFAST("Command 3\r\n");
-//		unsigned portBASE_TYPE uxTaskGetStackHighWaterMark( xTaskHandle xTask );
 		printf("MinFreeStack BMP280TaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(BMP280TaskHandle));
 		printf("MinFreeStack ADC1ReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(ADC1ReadTaskHandle));
 		printf("MinFreeStack uartReadTaskHandle %d\r\n", (uint16_t)uxTaskGetStackHighWaterMark(uartReadTaskHandle));
@@ -886,32 +893,34 @@ void step (int steps, uint8_t direction, uint16_t delay)
 {
   int x;
   if (direction == 0)
-    HAL_GPIO_WritePin(DIR_PORT, DIR_PIN, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(DIR_PORT, DIR_PIN, GPIO_PIN_SET);
   else
-    HAL_GPIO_WritePin(DIR_PORT, DIR_PIN, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(DIR_PORT, DIR_PIN, GPIO_PIN_RESET);
   for(x=0; x<steps; x=x+1)
   {
-    HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_SET);
-    microDelay(delay);
-    HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_RESET);
-    microDelay(delay);
+	HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_SET);
+	microDelay(delay);
+	HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_RESET);
+	microDelay(delay);
   }
 }
 step(800, 1, 5000); */
 
-/*----------------------------------------------------------------------------*/
 // задача по опросу клавиатуры и выполнению команд
-void task3_KB() {
+void task_Keyboard()
+{
 	uint16_t kb = Keyboard_read();
 	Keyboard_test(kb);
-	if (kb & KB_LEFT)  {
+	if (kb & KB_LEFT)
+	{
 		printf("Scanning I2C buses\r\n");
 		scanI2C();
 
 		printf("Lcd test\r\n");
 		Lcd_test();
 	}
-	if (kb & KB_RIGHT)  {
+	if (kb & KB_RIGHT)
+	{
 		/*HAL_ADC_Stop_DMA(&hadc1);
 		printf("Stop_DMA\r\n");*/
 
@@ -919,7 +928,8 @@ void task3_KB() {
 		TIM4->EGR = TIM_EGR_UG;
 		printf("Set TIM4 period 500 ms\r\n");*/
 	}
-	if (kb & KB_SET)  {
+	if (kb & KB_SET)
+	{
 		isDMA = !isDMA;
 #if defined(STM32F407xx)
 		maxlen = (isDMA == 0) ? 520 : 1856;
@@ -928,18 +938,21 @@ void task3_KB() {
 #endif
 		printf("Set isDMA %d, maxlen %d\r\n", isDMA, maxlen);
 	}
-	if (kb & KB_UP) {
+	if (kb & KB_UP)
+	{
 		maxlen += 4;
 		if (maxlen > RX_BUF_LEN)
 			maxlen = RX_BUF_LEN;
 		printf("maxlen up %d\r\n", maxlen);
 	}
-	if (kb & KB_DOWN) {
+	if (kb & KB_DOWN)
+	{
 		if (maxlen >= 4)
 			maxlen -= 4;
 		printf("maxlen dw %d\r\n", maxlen);
 	}
-	if (kb & KB_MID) {
+	if (kb & KB_MID)
+	{
 #ifdef INC_BMP280_H_
 		printf("BMP280 read\r\n");
 		BMP280_Read_All();
@@ -947,15 +960,15 @@ void task3_KB() {
 	}
 }
 
-void task5_MT6701() {
+void task_MT6701() {
 #ifdef INC_MT6701_H_
 	uint16_t rez_raw = mt6701_read();
 	float deg = rez_raw * (360.0f / 16384.0f);
 	//printf("MT6701 = raw: %4d, deg: %.3f", rez_raw, deg);
 
-	//memset(bufLCDstr, 0, 100);
-	sprintf(bufLCDstr, " MT6701: %4d\n deg: %.3f   \n               ", rez_raw, deg);
-	printstr_lcd(bufLCDstr, 0, 4, 1, 1);
+	//memset(bufLCD, 0, 100);
+	sprintf(bufLCD, " MT6701: %4d\n deg: %.3f   \n               ", rez_raw, deg);
+	printstr_lcd(bufLCD, 0, 4, 1, 1);
 #endif
 }
 
@@ -963,19 +976,13 @@ void task5_MT6701() {
 void read_BMP280_ATH25() {
 #ifdef INC_BMP280_H_
 	float temperature, pressure;
-	//BMP280_Read_PT();
-//	taskENTER_CRITICAL();
 	BMP280_Read_Data(&temperature, &pressure);
-//	taskEXIT_CRITICAL();
-//	taskYIELD();
 #ifdef INC_ATH25_H_
-	//ATH25_init();
+	// ATH25_init();
 	float ATH25_temperature, ATH25_humidity;
 	HAL_StatusTypeDef status;
 
-//	taskENTER_CRITICAL();
 	status = ATH25_Read_Data(&ATH25_temperature, &ATH25_humidity);
-//	taskEXIT_CRITICAL();
 	if (status == HAL_OK) {
 		printf("T: %.2f; P1: %.2f; P2: %.4f; H: %.2f; T2: %.2f\r\n",
 				temperature, pressure, pressure/mmHg, ATH25_humidity, ATH25_temperature);
@@ -986,25 +993,25 @@ void read_BMP280_ATH25() {
 #else
 	printf("T: %.2f; P1: %.2f; P2: %.4f;\r\n",
 			temperature, pressure, pressure/mmHg);
-	//printf("%.2f; %.2f; %.4f;\r\n", temperature, pressure, pressure/mmHg);
+	// printf("%.2f; %.2f; %.4f;\r\n", temperature, pressure, pressure/mmHg);
 #endif
 
-	//uint16_t rez_raw = mt6701_read();
-	//float deg = rez_raw * (360.0f / 16384.0f);
-	//printf("MT6701 = raw: %4d, deg: %.3f", rez_raw, deg);
+	// uint16_t rez_raw = mt6701_read();
+	// float deg = rez_raw * (360.0f / 16384.0f);
+	// printf("MT6701 = raw: %4d, deg: %.3f", rez_raw, deg);
 
 	// LCD print
-	//uint16_t lastInc = ColorInk;
+	// uint16_t lastInc = ColorInk;
 	uint16_t lastBack = ColorBack;
 	ColorInk=RED;
 	ColorBack=WHITE;
-	//memset(bufLCDstr, 0, 100);
+	//memset(bufLCD, 0, 100);
 #ifdef INC_ATH25_H_
-	sprintf(bufLCDstr, "T: %.2f %d \nP: %.3f mmhg\nH: %.2f T2:%.2f", temperature, (int)pressure, pressure/mmHg, ATH25_humidity, ATH25_temperature);
+	sprintf(bufLCD, "T: %.2f %d \nP: %.3f mmhg\nH: %.2f T2:%.2f", temperature, (int)pressure, pressure/mmHg, ATH25_humidity, ATH25_temperature);
 #else
-	sprintf(bufLCDstr, "T: %.2f %d \nP: %.3f mmhg", temperature, (int)pressure, pressure/mmHg);
+	sprintf(bufLCD, "T: %.2f %d \nP: %.3f mmhg", temperature, (int)pressure, pressure/mmHg);
 #endif
-	printstr_lcd(bufLCDstr, 0, 4, 1, 1);
+	printstr_lcd(bufLCD, 0, 4, 1, 1);
 	//ColorInk=lastInc;
 	ColorBack=lastBack;
 	ColorInk=BLACK;
@@ -1048,21 +1055,19 @@ void User_Init() {
 	ATH25_init();
 #endif
 
-	//taskAdd(&task1, 30000);    // messeg: _Worked
-//	taskAdd(&task2_led, 500);    // LED_Toggle
-//	taskAdd(&task3_KB, 20);      // Keyboard_read
-//	taskAdd(&task4_uartRx, 5);   // проверка на таймаут приёма UART
-//#ifdef INC_MT6701_H_
-//	taskAdd(&task5_MT6701, 200); // опрос магнитного энкодера MT6701
-//#endif
-//#ifdef INC_BMP280_H_
-//	t_BMP280 = taskAdd(&task6_BMP280, 3000); // опрос BMP280
-//#endif
-//#ifdef INC_ATH25_H_
-//	taskAdd(&task7_ATH25, 3000);
-//#endif
-
-	//Lcd_test();
+// 	taskAdd(&task1, 30000);      // messeg: _Worked
+// 	taskAdd(&task2_led, 500);    // LED_Toggle
+// 	taskAdd(&task3_KB, 20);      // Keyboard_read
+// 	taskAdd(&task4_uartRx, 5);   // проверка на таймаут приёма UART
+// #ifdef INC_MT6701_H_
+// 	taskAdd(&task_MT6701, 200);  // опрос магнитного энкодера MT6701
+// #endif
+// #ifdef INC_BMP280_H_
+// 	t_BMP280 = taskAdd(&task6_BMP280, 3000); // опрос BMP280
+// #endif
+// #ifdef INC_ATH25_H_
+// 	taskAdd(&task7_ATH25, 3000);
+// #endif
 }
 
 /* USER CODE END 0 */
@@ -1701,12 +1706,10 @@ void StartTaskKeyRead(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
-//  const char *mess = "Task: KeyRead\r\n";
   for(;;)
   {
-    task3_KB();
-    osDelay(20 / portTICK_RATE_MS); // Delay for 500 ms
-//    printf(mess);
+    task_Keyboard();
+    osDelay(20 / portTICK_RATE_MS);
   }
   /* USER CODE END 5 */
 }
@@ -1720,13 +1723,15 @@ void StartTaskKeyRead(void *argument)
 /* USER CODE END Header_StartTaskUartRead */
 void StartTaskUartRead(void *argument)
 {
-  /* USER CODE BEGIN StartTaskUartRead */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END StartTaskUartRead */
+	/* USER CODE BEGIN StartTaskUartRead */
+	/* Infinite loop */
+	for (;;)
+	{
+		task_uartRX();
+		osDelay(5);
+		// task_MT6701; // опрос магнитного энкодера MT6701  200ms
+	}
+	/* USER CODE END StartTaskUartRead */
 }
 
 /* USER CODE BEGIN Header_StartTaskADC */
@@ -1738,22 +1743,24 @@ void StartTaskUartRead(void *argument)
 /* USER CODE END Header_StartTaskADC */
 void StartTaskADC(void *argument)
 {
-  /* USER CODE BEGIN StartTaskADC */
-  /* Infinite loop */
-  portTickType xLastWakeTime;
-  for(;;)
-  {
-//	if (osSemaphoreRelease(myBinarySem01Handle) == osOK) {
-//	}
-//	osSemaphoreAcquire(myBinarySem01Handle, 0);
-//	taskENTER_CRITICAL();
-//	vTaskSuspendAll();
-//	ADC_read_DMA_mode();
-//	xTaskResumeAll();
-//	taskEXIT_CRITICAL();
-	vTaskDelayUntil( &xLastWakeTime, ( 1000 / portTICK_RATE_MS ) );
-  }
-  /* USER CODE END StartTaskADC */
+	/* USER CODE BEGIN StartTaskADC */
+	/* Infinite loop */
+	portTickType xLastWakeTime;
+	for (;;)
+	{
+		// if (osSemaphoreRelease(myBinarySem01Handle) == osOK)
+		// {
+		// }
+		// osSemaphoreAcquire(myBinarySem01Handle, 0);
+		// taskENTER_CRITICAL();
+		// vTaskSuspendAll();
+		// ADC_read_DMA_mode();
+		// xTaskResumeAll();
+		// taskEXIT_CRITICAL();
+		// HAL_IWDG_Refresh(&hiwdg);
+		vTaskDelayUntil(&xLastWakeTime, (1000 / portTICK_RATE_MS));
+	}
+	/* USER CODE END StartTaskADC */
 }
 
 /* USER CODE BEGIN Header_StartTaskReadBMP280 */
@@ -1765,19 +1772,19 @@ void StartTaskADC(void *argument)
 /* USER CODE END Header_StartTaskReadBMP280 */
 void StartTaskReadBMP280(void *argument)
 {
-  /* USER CODE BEGIN StartTaskReadBMP280 */
-  /* Infinite loop */
-	//	const char *mess = "Task: KeyADC\r\n";
+	/* USER CODE BEGIN StartTaskReadBMP280 */
+	/* Infinite loop */
+	// const char *mess = "Task: KeyADC\r\n";
 	portTickType xLastWakeTime;
-  for(;;)
-  {
-//  простой пинг в терминал, что работаем и не зависли
-//	printf("_Worked: %.3f sec\r\n", HAL_GetTick()/1000.0f);
-	LED_Toggle;
-	read_BMP280_ATH25();
-	vTaskDelayUntil( &xLastWakeTime, ( 3000 / portTICK_RATE_MS ) );
-  }
-  /* USER CODE END StartTaskReadBMP280 */
+	for (;;)
+	{
+		// простой пинг в терминал, что работаем и не зависли
+		// printf("_Worked: %.3f sec\r\n", HAL_GetTick() / 1000.0f);
+		LED_Toggle;
+		read_BMP280_ATH25();
+		vTaskDelayUntil(&xLastWakeTime, (3000 / portTICK_RATE_MS));
+	}
+	/* USER CODE END StartTaskReadBMP280 */
 }
 
 /**
