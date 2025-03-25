@@ -83,7 +83,7 @@ i2c 40 r 1 0002 0002   INA226 BUS_VOLTAGE  unsign16 (1 LSB = 1.25 mV)
 ![F407 Pinout](F407_pinout.png)
 
 ### Пример графика на Python
-![Python Chart Screen](python/chart_screen.png)
+![Python Chart Screen](chart_screen.png)
 
 ### IDE
 Использовалась ```STM32CubeIDE```
