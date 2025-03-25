@@ -3,7 +3,7 @@ Debug
 # STM32CubeIDE
 .metadata/
 .settings/
-*.ld
+#*.ld
 
 # For Python subproject
 
