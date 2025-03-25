@@ -10,7 +10,7 @@
 #define INC_BUTTONS_H_
 
 #include "main.h"
-#include <stdio.h>    // printf
+
 // **************************************************************
 
 /**
@@ -30,7 +30,7 @@ typedef enum
 
 
 /* Exported functions prototypes ---------------------------------------------*/
-uint16_t Keyboard_read();
-void Keyboard_test(uint16_t);
+uint16_t buttons_read();
+void buttons_test_msg(uint16_t);
 
 #endif /* INC_BUTTONS_H_ */

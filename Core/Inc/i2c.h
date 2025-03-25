@@ -8,20 +8,17 @@
 #ifndef INC_I2C_H_
 #define INC_I2C_H_
 
-//#include <string.h> // strlen()
+#include <stdint.h>
+#include "utils.h"
 
-//#include "stm32f1xx_hal.h"
-//#include "stm32f1xx_hal_conf.h"
-//#include "main.c"
+#define I2C_ADDR_24C02 0x52  // 24C02 (pin A0 & A2 = GND, A1 = Vcc) adress: b1010010 = 0x52 = dec:82
+#define AT24C02_EEPROM_SIZE        256
+#define AT24C02_EEPROM_PAGE_SIZE     8
 
-//extern I2C_HandleTypeDef hi2c1;
-//extern I2C_HandleTypeDef hi2c2;
-
-//extern char sprintfBuffer[256];
-//extern void _out(const char*);
-//extern void _outln(const char*);
+extern uint8_t eepromReadBuf[AT24C02_EEPROM_SIZE];
 
 void scanI2C();
 void i2c_sw_reset();
+void eeprom_readall();
 
 #endif /* INC_I2C_H_ */
