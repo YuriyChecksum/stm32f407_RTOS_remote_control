@@ -50,9 +50,13 @@ Please also note that using "\\\\.\\" is always possible for devices
 '''
 
 import serial
+import serial.tools.list_ports
 import time
 from contextlib import contextmanager
 import logging
+
+import serial.tools.list_ports_common
+from serial.tools.list_ports_common import ListPortInfo
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -76,7 +80,10 @@ class Serial:
         try:
             yield cls._handl
         finally:
-            cls.close()
+            if not cls._handl:
+                cls._handl.flushOutput()
+                cls.close()
+                cls._handl = None
 
     @classmethod
     def init_serial(cls):  # первичная инициализация порта
@@ -114,8 +121,8 @@ class Serial:
     def read(cls) -> bytes | None:
         try:
             cls.init_serial()
-            if Serial._handl.in_waiting > 0:
-                return Serial._handl.read_all()
+            if cls._handl.in_waiting > 0:
+                return cls._handl.read_all()
         except:
             raise ConnectionError(f'Can\'t read serial port: {cls.port}, class: \'{cls.__name__}\'')
 
@@ -123,8 +130,8 @@ class Serial:
     def read_line(cls) -> bytes | None:
         try:
             cls.init_serial()
-            if Serial._handl.in_waiting > 0:
-                return Serial._handl.readline()
+            if cls._handl.in_waiting > 0:
+                return cls._handl.readline()
         except:
             raise ConnectionError(f'Can\'t read serial port: {cls.port}, class: \'{cls.__name__}\'')
 
@@ -152,6 +159,29 @@ class Serial:
             except:
                 raise ConnectionError(f'Can\'t close serial port: {cls.port}')
 
+    @classmethod
+    def list_com_ports(cls) -> list[ListPortInfo]:
+        ports = serial.tools.list_ports.comports()
+        return ports
+    
+    @classmethod
+    def search_port_from_vid_pid(cls, vid_pid: str) -> ListPortInfo | None:
+        """parametr: '1A86:7523'"""
 
+        ports = serial.tools.list_ports.comports()
+        if not ports:
+            return
+
+        _vid_pid = vid_pid.upper()
+
+        for port in ports:
+            if _vid_pid in port.hwid.upper():
+                return port
+
+            if port.vid and port.pid:
+                vp = f"{port.vid:04X}:{port.pid:04X}" # 1A86:7523
+                if _vid_pid == vp:
+                    return port
+                
 if __name__ == "__main__":
     pass

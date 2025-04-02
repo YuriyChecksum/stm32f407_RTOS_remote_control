@@ -5,7 +5,7 @@ import logging
 from src.serial import Serial
 import src.keyboard_hook as kb
 # import src.crc as CRC
-from src.file_io import read_dump, save_dump, write_log
+# from src.file_io import read_dump, save_dump, write_log
 
 # https://docs.python.org/3/library/logging.html#logrecord-attributes
 logging.basicConfig(

@@ -6,7 +6,6 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.dates import DayLocator, HourLocator, MinuteLocator, DateFormatter, drange
-import numpy as np
 import datetime as DT  # DT.datetime.now()
 from collections import namedtuple
 from abc import ABC, abstractmethod
@@ -210,7 +209,7 @@ class PressureChart(DrawChart):
 
         # plt.annotate('General direction', xy = (3.4, 17)) #add annotation
         # ax.grid()  # сетка
-        # Отобразить график фукнции в начальный момент времени
+        # Отобразить график функции в начальный момент времени
 
         # df_time = pd.DataFrame(data)['datetime'].apply(lambda x: DT.datetime.strptime(x, '%Y.%m.%d %X').astimezone()) # from timestamp
 
@@ -264,7 +263,7 @@ class PressureChart(DrawChart):
         )
         # line.set_ydata(_data['T']) # ошибка, потому что оси не настроенны
 
-        x = np.arange(len(_data))  # линейный ряд для оси Х
+        x = range(len(_data)) # линейный ряд для оси Х
 
         # ["datetimenow", "T", "P", "Piir", "Pmm", "Hum", "T_ath25"]
         self.line1.set_data(x, _data['T'])
