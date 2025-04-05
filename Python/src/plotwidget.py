@@ -4,8 +4,17 @@ from matplotlib.figure import Figure
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
 import datetime
+from dataclasses import dataclass
 
 MAX_POINTS = 1000 # Максимальное количество точек на графике
+
+@dataclass
+class PlotDataPoint:
+    time: str
+    temperature: float
+    temperature_ath25: float
+    humidity: float
+    pressure: float
 
 class PlotWidget(QWidget):
     def __init__(self, parent=None):
@@ -39,11 +48,7 @@ class PlotWidget(QWidget):
         self.setLayout(layout)
 
         # Инициализация данных для графиков
-        self.time_data = []  # Временные метки
-        self.temp_data = []  # Температура
-        self.temp_data_ath25 = []  # Температура ath25
-        self.humidity_data = []  # Влажность
-        self.pressure_data = []  # Давление
+        self.data_points: list[PlotDataPoint] = []  # Список экземпляров PlotDataPoint
 
         # Настройка графиков
         self.ax1.set_ylabel('T (°C)')
@@ -70,8 +75,8 @@ class PlotWidget(QWidget):
         self.ax3.grid(True)
 
         # Линии графиков
-        self.temp_line,     = self.ax1.plot([], [], linewidth=1, linestyle='-', marker='', label="Температура (°C)", color="red") # Температура
-        self.temp_line2,    = self.ax1.plot([], [], linewidth=1, linestyle='-', marker='', label="Температура ath25 (°C)", color="orange") # Температура ath25 (°C)
+        self.temp_line,     = self.ax1.plot([], [], linewidth=1, linestyle='-', marker='', label="T (°C)", color="red") # Температура
+        self.temp_line2,    = self.ax1.plot([], [], linewidth=1, linestyle='-', marker='', label="T (°C) ath25", color="orange") # Температура ath25 (°C)
         self.humidity_line, = self.ax2.plot([], [], linewidth=1, linestyle='-', marker='', label="", color="green") # Влажность (%)
         self.pressure_line, = self.ax3.plot([], [], linewidth=1, linestyle='-', marker='', label="", color="blue") # Давление (mmHg)
 
@@ -84,27 +89,32 @@ class PlotWidget(QWidget):
         # Подключение обработчика изменения размера
         self.figure.canvas.mpl_connect('resize_event', lambda e: self.figure.tight_layout())
 
-    def update_plot(self, values):
+    def update_plot(self, values: PlotDataPoint):
         """
         Обновление графиков с новыми данными.
         :param values: Список из значений [температура, влажность, давление].
         """
         try:
             current_time = datetime.datetime.now().strftime("%H:%M:%S")
-
             # Добавляем данные
-            self.time_data.append(current_time)
-            self.temp_data.append(values[0])
-            self.temp_data_ath25.append(values[1])
-            self.humidity_data.append(values[2])
-            self.pressure_data.append(values[3])
+            # self.data_points.append(
+            #     PlotDataPoint(
+            #         time=current_time,
+            #         temperature=values[0],
+            #         temperature_ath25=values[1],
+            #         humidity=values[2],
+            #         pressure=values[3]
+            #     )
+            # )
+            self.data_points.append(values)
+            self.data_points = self.data_points[-MAX_POINTS:]  # Ограничиваем количество точек
 
             # Обновляем данные линий и ограничиваем количество точек на графиках
-            x_range = range(len(self.time_data[-MAX_POINTS:]))
-            self.temp_line.set_data(x_range, self.temp_data[-MAX_POINTS:])
-            self.temp_line2.set_data(x_range, self.temp_data_ath25[-MAX_POINTS:])
-            self.humidity_line.set_data(x_range, self.humidity_data[-MAX_POINTS:])
-            self.pressure_line.set_data(x_range, self.pressure_data[-MAX_POINTS:])
+            x_range = range(len(self.data_points))
+            self.temp_line.set_data(x_range, [dp.temperature for dp in self.data_points])
+            self.temp_line2.set_data(x_range, [dp.temperature_ath25 for dp in self.data_points])
+            self.humidity_line.set_data(x_range, [dp.humidity for dp in self.data_points])
+            self.pressure_line.set_data(x_range, [dp.pressure for dp in self.data_points])
 
             # Настраиваем масштаб осей
             # _len = len(self.time_data) - 1

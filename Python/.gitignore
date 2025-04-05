@@ -162,3 +162,9 @@ cython_debug/
 #.idea/
 
 # other_files/
+
+# Ignore all .csv files
+*.csv
+
+# Do not ignore BMP280_pressure_demo.csv
+!Python/BMP280_pressure_demo.csv

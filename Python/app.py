@@ -1,8 +1,8 @@
+import datetime
 from pathlib import Path
 import sys
 import logging
 import csv
-import time
 import serial
 import serial.tools.list_ports
 from PySide6.QtWidgets import QFileDialog
@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer, Signal, QThread
 from PySide6.QtGui import QTextCharFormat, QColor, QTextCursor
 from src.sensor_data import SensorDataFilter
 from src.mainwindow import Ui_MainWindow
-from src.plotwidget import PlotWidget
+from src.plotwidget import PlotWidget, PlotDataPoint
 from src.logger import setup_logger, format_log_record
 
 logging.basicConfig(
@@ -50,12 +50,18 @@ class SerialReaderThread(QThread):
                             self.data_received.emit(line)  # Отправляем данные через сигнал
                     except serial.SerialException as e:
                         self.error_occurred.emit(f"Ошибка чтения: {e}")
+                        # log.exception("Ошибка чтения данных с последовательного порта", exc_info=True)
                         break
+                    except UnicodeDecodeError as e:
+                        self.error_occurred.emit(f"Ошибка декодирования данных: {e}")
+                        # log.exception("Ошибка декодирования данных", exc_info=True)
                     except Exception as e:
                         self.error_occurred.emit(f"Неизвестная ошибка: {e}")
+                        # log.exception("Неизвестная ошибка в потоке чтения данных", exc_info=True)
                         break
         except Exception as e:
             self.error_occurred.emit(f"Ошибка в потоке: {e}")
+            # log.exception("Ошибка в потоке SerialReaderThread", exc_info=True)
 
     def stop(self):
         """Останавливает поток."""
@@ -106,9 +112,9 @@ class MainWindow(QMainWindow):
         self.ui.pushButton_saveCSV.clicked.connect(self.save_to_csv)
         self.ui.pushButton_send.clicked.connect(self.send_command_from_ui)
 
+        self.ui.comboBox_baudrate.setCurrentText(str(BAUDRATE)) # Установка baudrate
         self.list_com_ports() # выведет в логи список портов
         self.auto_select_port() # Автоматический выбор порта
-        self.ui.comboBox_baudrate.setCurrentText(str(BAUDRATE)) # Установка baudrate
 
     def update_text_edit(self, record: logging.LogRecord):
         """Обновляет textEdit с форматированием из logger.py.
@@ -140,55 +146,73 @@ class MainWindow(QMainWindow):
 
     def list_com_ports(self):
         """Выведет список портов с подробной информацией"""
-        ports = serial.tools.list_ports.comports()
-        for port in ports:
-            log.info(f"{port.device:7}{port.description}")
-            # log.info(str(port.__dict__))
+        try:
+            ports = serial.tools.list_ports.comports()
+            for port in ports:
+                log.info(f"{port.device:7}{port.description}")
+                # log.info(str(port.__dict__))
+        except Exception as e:
+            log.error("Ошибка при получении списка COM портов", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Не удалось получить список портов: {e}")
 
     def auto_select_port(self):
         """Автоматический выбор порта с заданным VID и PID, но отображение всех портов."""
-        ports = serial.tools.list_ports.comports()
-        target_port = None  # Переменная для хранения порта с искомым VID и PID
+        try:
+            ports = serial.tools.list_ports.comports()
+            target_port = None  # Переменная для хранения порта с искомым VID и PID
 
-        # Очистка списка портов в comboBox_ports
-        self.ui.comboBox_ports.clear()
+            # Очистка списка портов в comboBox_ports
+            self.ui.comboBox_ports.clear()
 
-        ports_names = sorted([p.device for p in ports]) # p.name или p.device
-        self.ui.comboBox_ports.addItems(ports_names)
+            ports_names = sorted([p.device for p in ports])  # p.name или p.device
+            self.ui.comboBox_ports.addItems(ports_names)
 
-        # ищем порт с нужным VID и PID
-        for port in ports:
-            if TARGET_VID_PID in port.hwid.upper():
-                target_port = port.device  # Сохраняем порт
+            # ищем порт с нужным VID и PID
+            for port in ports:
+                if TARGET_VID_PID in port.hwid.upper():
+                    target_port = port.device  # Сохраняем порт
 
-        # Если найден порт с искомым VID и PID, выбираем его
-        if target_port:
-            self.ui.comboBox_ports.setCurrentText(target_port)
-            log.info("Устройство найдено %s", target_port)
-        else:
-            log.info("Устройство с заданным VID_PID не найдено.")
+            # Если найден порт с искомым VID и PID, выбираем его
+            if target_port:
+                self.ui.comboBox_ports.setCurrentText(target_port)
+                log.info("Устройство найдено %s", target_port)
+                if not self.serial_port:
+                    self.connect_device()  # Автоподключение к устройству
+            else:
+                log.info("Устройство с заданным VID_PID не найдено.")
+        except Exception as e:
+            log.error("Ошибка при автоматическом выборе порта", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при автоматическом выборе порта: {e}")
 
     def save_to_csv(self):
         """Сохранение данных в CSV с разделителем ';'."""
-        file_path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", "", "CSV Files (*.csv)")
+        default_file_name = str(BASE_PATH / "data.csv")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", default_file_name, "CSV Files (*.csv)")
         if not file_path:
+            log.info("Сохранение отменено пользователем.")
             return
 
         try:
             with open(file_path, mode="w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file, delimiter=';')
+                # Заголовки CSV
                 writer.writerow(["Время", "Температура (°C)", "Температура ath25 (°C)", "Влажность (%)", "Давление (mmHg)"])
-                for i in range(len(self.plot_widget.time_data)):
+                # Запись данных из PlotWidget
+                for data_point in self.plot_widget.data_points:
                     writer.writerow([
-                        self.plot_widget.time_data[i],
-                        self.plot_widget.temp_data[i],
-                        self.plot_widget.temp_data_ath25[i],
-                        self.plot_widget.humidity_data[i],
-                        self.plot_widget.pressure_data[i],
+                        data_point.time,
+                        data_point.temperature,
+                        data_point.temperature_ath25,
+                        data_point.humidity,
+                        f"{data_point.pressure:.3f}",
                     ])
             log.info("Данные успешно сохранены в %s", file_path)
+        except PermissionError as e:
+            log.error("Ошибка доступа к файлу при сохранении", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Нет доступа к файлу: {e}")
         except Exception as e:
-            log.exception("Ошибка сохранения файла.", exc_info=e)
+            log.exception("Ошибка сохранения файла", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Ошибка сохранения файла: {e}")
 
     def toggle_connection(self):
         """Подключение/отключение устройства."""
@@ -202,7 +226,7 @@ class MainWindow(QMainWindow):
         port_name = self.ui.comboBox_ports.currentText()
         baudrate = int(self.ui.comboBox_baudrate.currentText())
         if not port_name:
-            log.info("Порт не выбран.")
+            log.warning("Порт не выбран.")
             QMessageBox.warning(self, "Warning", "Please select a COM port.")
             return
 
@@ -221,8 +245,14 @@ class MainWindow(QMainWindow):
             self.ui.pushButton_connect.setText("Отключить")
             log.info("Подключено к %s со скоростью %s бод", self.serial_port.port, self.serial_port.baudrate)
         except serial.SerialException as e:
-            log.info("Ошибка подключения", exc_info=e)
-            QMessageBox.critical(self, "Ошибка", f"Не удалось подключиться к {port_name}")
+            log.error("Ошибка подключения к последовательному порту", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Не удалось подключиться к {port_name}: {e}")
+        except ValueError as e:
+            log.error("Некорректное значение скорости передачи данных", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Некорректное значение скорости: {e}")
+        except Exception as e:
+            log.exception("Неизвестная ошибка при подключении устройства", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Неизвестная ошибка: {e}")
 
     def disconnect_device(self):
         """Отключение от устройства."""
@@ -290,12 +320,13 @@ class MainWindow(QMainWindow):
             return
 
         # Обновляем график
-        self.plot_widget.update_plot([
-            data['temperature'],
-            data['temperature_ath25'],
-            data['humidity_ath25'],
-            data['pressure_mm']
-        ])
+        self.plot_widget.update_plot(PlotDataPoint(
+            time=datetime.datetime.now().strftime("%H:%M:%S"),
+            temperature=data['temperature'],
+            temperature_ath25=data['temperature_ath25'],
+            humidity=data['humidity_ath25'],
+            pressure=data['pressure_mm']
+        ))
 
         # Логируем обработанные данные
         log.info(
@@ -321,14 +352,18 @@ class MainWindow(QMainWindow):
     def send_serial_data(self, command: str = '') -> None:
         """Отправляет строковую команду на подключенное устройство."""
         if not self.serial_port or not self.serial_port.is_open:
-            log.info('not connected')
+            log.warning('Попытка отправить данные без подключения к устройству.')
+            QMessageBox.warning(self, "Ошибка", "Устройство не подключено.")
             return
-        log.debug('Send command: %s', command)
+        log.debug('Отправка команды: %s', command)
         try:
             self.serial_port.write(f'{command}\n'.encode())
+        except serial.SerialException as e:
+            log.error("Ошибка отправки данных на устройство", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Ошибка отправки данных: {e}")
         except Exception as e:
-            log.exception(e)
-            QMessageBox.critical(self, "Error", str(e))
+            log.exception("Неизвестная ошибка при отправке данных", exc_info=True)
+            QMessageBox.critical(self, "Ошибка", f"Неизвестная ошибка: {e}")
 
     def log_message(self, message):
         """Вывод сообщения в textEdit."""
